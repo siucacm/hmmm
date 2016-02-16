@@ -1,0 +1,27 @@
+<template name="eventLinesLayout">
+	{{> yield}}
+</template>
+
+
+<template name="eventLines">
+	<div class="eventLines">
+		<div class="header">
+			{{mf "kiosk.eventLines.header.EventsToday" "Events Today:"}}
+		</div>
+		{{#each this}}
+		<a class="eventLines" href="{{pathFor 'showEvent'}}">
+			<div class="event">
+				<span class="date2">
+					{{timeformat start}} - {{timeformat end}}
+				</span>
+				<span class="eventTitle">
+					{{this.title}}
+				</span>
+				<span class="room">
+					{{this.location}}
+				</span>
+			</div>
+		</a>
+		{{/each}}
+	</div>
+</template>
