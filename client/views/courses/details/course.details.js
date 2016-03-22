@@ -169,3 +169,7 @@ Template.coursedetails.rendered = function() {
 	$('a[href!="' + currentPath + '"].nav_link').removeClass('active');
 	$('#nav_courses').addClass('active');
 };
+
+Template.course_description.rendered = function() {
+	this.$('.course_description').linkify();
+};
