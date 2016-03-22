@@ -171,5 +171,7 @@ Template.coursedetails.rendered = function() {
 };
 
 Template.course_description.rendered = function() {
-	this.$('.course_description').linkify();
+	this.$('.course_description').linkify({
+		linkAttributes: { rel: 'nofollow' }
+	});
 };
