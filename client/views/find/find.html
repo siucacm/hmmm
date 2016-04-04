@@ -1,6 +1,11 @@
+<template name="findWrap">
+	<div class="find">
+		<h1>{{mf 'find.WhatLearn?' 'What do you want to learn?'}}</h1>
+		{{> find}}
+	</div>
+</template>
+
 <template name="find">
-<div class="find">
-	<h1>{{mf 'find.WhatLearn?' 'What do you want to learn?'}}</h1>
 	<div class="search">
 		<div class="-searchField">
 			<div class="input-group">
@@ -16,21 +21,36 @@
 						{{mf 'find.search_go' 'Go!'}}
 					</button>
 				</span>
-				<span class="input-group-btn">
-					{{#if showingFilters}}
-						<button class="-showFilters remove-filter" type="button">
-							<span class="glyphicon glyphicon-filter"></span>
-							{{mf 'find.hideFilters' 'Remove filters'}}
-						</button>
-					{{else}}
-						<button class="-showFilters" type="button">
-							<span class="glyphicon glyphicon-filter"></span>
-							{{mf 'find.showFilters' 'Filter'}}
-						</button>
-					{{/if}}
-				</span>
+				{{#unless isMobile}}
+					<span class="input-group-btn">
+						{{#if showingFilters}}
+							<button class="-showFilters remove-filter" type="button">
+								<span class="glyphicon glyphicon-filter"></span>
+								{{mf 'find.hideFilters' 'Remove filters'}}
+							</button>
+						{{else}}
+							<button class="-showFilters" type="button">
+								<span class="glyphicon glyphicon-filter"></span>
+								{{mf 'find.showFilters' 'Filter'}}
+							</button>
+						{{/if}}
+					</span>
+				{{/unless}}
 			</div>
 		</div>
+		{{#if isMobile}}
+			{{#if showingFilters}}
+				<button class="-showFilters remove-filter" type="button">
+					<span class="glyphicon glyphicon-filter"></span>
+					{{mf 'find.hideFilters' 'Remove filters'}}
+				</button>
+			{{else}}
+				<button class="-showFilters" type="button">
+					<span class="glyphicon glyphicon-filter"></span>
+					{{mf 'find.showFilters' 'Filter'}}
+				</button>
+			{{/if}}
+		{{/if}}
 		<div class="search_filter" style="{{#if showingFilters}}display:block;{{else}}display:none;{{/if}}">
 			<div class="search_filter_header">
 				<h4>
@@ -159,25 +179,6 @@
 					</ul>
 				</div>
 			</div>
-			<div class="filter_groups">
-				<h4>{{mf 'find.filter.groups' 'Groups'}}</h4>
-				{{#if group}}
-					<h5>
-						{{mf 'find.filter.group' 'Showing courses in group:'}}
-					</h5>
-					<span class="group_name_static">{{> groupNameStatic group}}</span>
-					&nbsp;
-					<span
-						class="glyphicon glyphicon-remove -removeGroupFilter"
-						title="{{mf 'find.filter.removeGroup' 'Remove group {GROUPNAME} from filter' GROUPNAME=name}}">
-					</span>
-					<br>
-				{{else}}
-					<span class="groups_explanation">
-						{{mf 'find.filter.groups.explanation' 'Click on a group to select its courses.'}}
-					</span>
-				{{/if}}
-			</div>
 		</div>
 	</div>
 	<div class="courselist_results">
@@ -225,12 +226,11 @@
 			{{/if}}
 			</h3><br />
 			{{#each eventResults}}
-				<div class="event_results">
-					{{>course_event}}
-				</div>
+				<!-- <div class="event_results"> -->
+					{{> small_event}}
+				<!-- </div> -->
 			{{/each}}
 		</div>
 	{{/if}}
 	{{> course_edit newCourse}}
-</div>
 </template>

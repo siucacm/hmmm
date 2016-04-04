@@ -26,7 +26,7 @@ Router.map(function() {
 				'involvedIn': coursesFind({ userInvolved: this.params._id }),
 				'alterPrivileges': alterPrivileges,
 				'privileges': privileges,
-				'inviteGroups': groupsFind({ own: true }),
+				'inviteGroups': GroupLib.find({ own: true }),
 				'showPrivileges': showPrivileges
 			};
 		},
@@ -157,5 +157,6 @@ Template.emailBox.events({
 Template.userprofile.rendered = function() {
 	var currentPath = Router.current().route.path(this);
 	$('a[href!="' + currentPath + '"].nav_link').removeClass('active');
-	$('a.loginButton.nav_link').addClass('active');
+	if (this.data.user._id == Meteor.userId())
+		$('a.loginButton.nav_link').addClass('active');
 };
