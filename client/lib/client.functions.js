@@ -21,12 +21,6 @@ getMember = function(members, user) {
 };
 
 
-mayEdit = function(user, course) {
-	if(!user) return false;
-	return user && (privileged(user, 'admin') || hasRoleUser(course.members, 'team', user._id));
-};
-
-
 /* Get a username from ID
  *
  * It tries hard to give a sensible response; incognito ids get represented by an incognito string, unless the user employing that incognito-ID is currently logged in.
@@ -68,6 +62,8 @@ goBase = function() {
 pleaseLogin = function() {
 	if (Meteor.userId()) return false;
 	alert(mf('Please.login', 'Please login or register'));
+	if (Session.get('screenSize') <= 768) // @screen-sm
+		$('.collapse').collapse('show');
 	setTimeout(function(){
 		$('.loginButton').dropdown('toggle');    //or $('.dropdown').addClass('open');
 	},0);

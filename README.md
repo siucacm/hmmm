@@ -10,7 +10,7 @@ An interactive web-platform in development with the ambition to facilitate a bar
 [  read on...](http://about.openki.net "our blog")
 <div align="right"> (<span class="octicon octicon-star">★</span> Star us if you like the idea)</div>
 
-- Demo/Playground: [test.openki.net](http://test.openki.net/?region=Englistan "runing here")
+- Demo/Playground: [sandbox.openki.net](http://sandbox.openki.net/?region=Englistan "runing here")
 - Live: [alpha.openki.net](https://alpha.openki.net)
 - Concept: [about.openki.net](http://about.openki.net "our blog")
 - Contact: [openki-core[at]lists.xiala.net](mailto:openki-core[_at_]lists.xiala.net "write us")
@@ -47,8 +47,8 @@ All submissions are welcome. To submit a change, [fork this repo](https://github
 
 ### Installation (Linux, OSX and Windows)
 - To install Meteor locally, run: `curl https://install.meteor.com | sh`  (or download [Installer](https://install.meteor.com/windows) for Win)
-- [Download](https://github.com/schuel/hmmm/archive/master.zip) and unzip or `git clone` Openki into /some/path
-- `cd /some/path`
+- [Download](https://github.com/schuel/hmmm/archive/master.zip) and unzip or `git clone https://github.com/schuel/hmmm.git` Openki into /some/path.
+- `cd /some/path/hmmm`
 - Run `meteor --settings settings.dev.json`
 - Browse to [localhost:3000](http://localhost:3000/)  -> done.
 

@@ -48,9 +48,6 @@ Template.calendar.helpers({
 	startDate: function() {
 		Session.get('timeLocale');
 		return moment(Template.instance().filter.get('start'));
-	},
-	isMobile: function() {
-		return Session.get('screenSize') <= 992; // @screen-md
 	}
 });
 
@@ -88,6 +85,11 @@ Template.calendar.onCreated(function() {
 		var data = Template.currentData();
 		var query = data.query || {};
 
+		// Show internal events only when a group or location is specified
+		if (!query.group && !query.location && query.internal === undefined) {
+			query.internal = false;
+		}
+
 		filter
 			.clear()
 			.add('start', moment().startOf('week'))
@@ -110,12 +112,10 @@ Template.calendar.onCreated(function() {
 
 Template.calendar.rendered = function() {
 	$(window).scroll(function (event) {
-		if($(window).scrollTop() > 5){
+		if($(window).scrollTop() > 5)
 			this.$('.switchDate').addClass('over_content');
-		}
-		else {
+		else
 			this.$('.switchDate').removeClass('over_content');
-		}
 	});
 
 	var currentPath = Router.current().route.path(this);

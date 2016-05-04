@@ -6,7 +6,7 @@
 		{{else}}
 			<div class="course_main {{#with course}}{{coursestate}}{{/with}}">
 				{{#if isProposal}}
-					<div class="courseStatus" >
+					<div class="courseStatus">
 						<div>
 						{{mf 'course.details.tag.proposal' 'proposal'}}
 						</div>
@@ -51,9 +51,7 @@
 			{{#if mobileViewport}}
 				{{> course_events}}
 			{{else}}
-				<div class="discussion">
-					{{> discussion course}}
-				</div>
+				{{> discussion course}}
 			{{/if}}
 		</div>
 		<div class="coursedetails_column_right">
@@ -65,9 +63,7 @@
 						{{> roles_details roles_details}}
 				</div>
 			{{#if mobileViewport}}
-				<div class="discussion">
-					{{> discussion course}}
-				</div>
+				{{> discussion course}}
 			{{/if}}
 		</div>
 	</div>

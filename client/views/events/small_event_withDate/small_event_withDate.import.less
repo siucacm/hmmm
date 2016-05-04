@@ -1,6 +1,6 @@
-.small_event_container {
+.small_event_withDate_container {
   .grid(4, 3, inherit, 2);
-  height: 200px;
+  height: 220px;
   padding: 0px 3px 10px;
   .small_event {
     .grid(12);
@@ -11,7 +11,7 @@
     &:hover {
 			.box-shadow-big(@default-shadow);
 		}
-    .-eventLocationTime,
+		.-eventLocationTime,
     .-eventTitle,
     .-eventDescription {
 			.word-break;
@@ -22,13 +22,17 @@
       background: @brand-success;
       border-bottom: 1px solid @default-white;
       color: @default-black;
-      height: 55px;
+      height: 75px;
       padding: 5px;
 			span.fa,
 			span.glyphicon {
 				margin-right: 2px;
 			}
 			span.fa-clock-o,
+			span.event_date {
+				font-weight: bold;
+				margin-bottom: 5px;
+			}
 			span.event_time {
 				margin-bottom: 5px;
 			}
