@@ -1,101 +1,117 @@
 <template name="calendar">
-		{{> switchDate date=startDate}}
-	<div class="calendar">
-		{{#each days}}
-			{{> calendarDay day=this filter=filter}}
-			<hr>
-		{{/each}}
+	{{> calendarNav date=startDate}}
+	<div class="container calendar-container">
+		<div class="page-component">
+			{{> calendarAddEvent}}
+		</div>
+		<div class="page-component">
+			{{#each days}}
+				{{> calendarDay day=this filter=filter}}
+				<hr>
+			{{/each}}
+		</div>
+		<div class="page-component">
+			{{> calendarAddEvent}}
+		</div>
 	</div>
 </template>
 
-<template name="calendarDay">
-	<div class="calendar_date">
-		<div class="date">
-			{{calendarDay day.start}}
-		</div>
-		{{#if eventsReady}}
-			{{#unless hasEvents}}
-				<br>
-				{{mf 'calendar.noCoursesThisDay' "There are no courses on this day"}}
-			{{/unless}}
-			{{#if hasEvents}}
-				<div class="calendar_events">
-					{{#each events}}
-						{{#if past}}
-							{{> calendar_event_past}}
-						{{else}}
-							{{> small_event}}
-						{{/if}}
-					{{/each}}
+<template name="calendarAddEvent">
+	<a href="{{pathFor 'showEvent' _id='create'}}">
+		<div class="event-caption placeholder event-caption-add">
+			<div class="event-caption-header-wrap">
+				<div class="event-caption-header">
+					<span class="fa fa-map-pin"></span>
+					<div class="event-caption-pseudoborder"></div>
 				</div>
-			{{/if}}
-		{{else}}
-			{{> loadingRow}}
-		{{/if}}
-	</div>
-</template>
-
-<template name="calendar_event_past">
-	<a href="{{pathFor 'showEvent'}}">
-		<div class="calendar_event_past no-padding col-xs-12 col-sm-4 col-md-3 col-lg-2" style='overflow: hidden'>
-			<div class="course_event_date">
-				<span class="glyphicon glyphicon-calendar" aria-hidden="true"></span>
-				{{dateformat_withday start}}
 			</div>
-			<div class="course_event_time">
-				<span class="glyphicon glyphicon-time" aria-hidden="true"></span>
-				{{timeformat start}} - {{timeformat end}} &nbsp;&nbsp;&nbsp; {{this.location}}, {{this.room}}
+			<div class="event-caption-body-wrap">
+				<div class="event-caption-body">
+					{{mf 'event.create.caption.createEvent'}}
+				</div>
 			</div>
-			<div class="course_event_title">
-				<h4>{{this.title}}</h4>
-			</div>
-			<div class="course_event_desc ellipsis">
-				<p>{{plain description}}</p>
-			</div>
-			<div class="grey_out"></div>
 		</div>
+		<span class="event-caption-add-text">
+			{{mf 'menue.CreateEvent'}}
+		</span>
 	</a>
 </template>
 
-<template name="switchDate">
-	<div class="switchDate">
-		<div class="left">
-			<button class="prevYear" aria-label="go back one year">
-				<span class="fa fa-arrow-left"></span>
-				{{mf "calendar.button.previousYear" "one year"}}
-			</button>
-			<button class="prevMonth" aria-label="go back one month">
-				<span class="fa fa-arrow-left"></span>
-				{{mf "calendar.button.previousMonth" "one month"}}
-			</button>
-			<button class="prevWeek" aria-label="go back one week">
-				<span class="fa fa-arrow-left"></span>
-				{{mf "calendar.button.previousweek" "one week"}}
-			</button>
-		</div>
-		<div class="right">
-			<button class="nextWeek" aria-label="go forward one week">
-				{{mf "calendar.button.nextWeek" "one week"}}
-				<span class="fa fa-arrow-right"></span>
-			</button>
-			<button class="nextMonth" aria-label="go forward one month">
-				{{mf "calendar.button.nextMonth" "one month"}}
-				<span class="fa fa-arrow-right"></span>
-			</button>
-			<button class="nextYear" aria-label="go forward one year">
-				{{mf "calendar.button.nextYear" "one year"}}
-				 <span class="fa fa-arrow-right"></span>
-			</button>
-		</div>
-		<div class="calendar_week">
-		<div class="week">
-				{{mf "calendar.weekNumber" "Week"}} {{weekNr date}}<br>
-		</div>
-		<div class="date">
-			{{dateLong date}} - {{dateLong (endDateTo date)}}
-		</div>
+<template name="calendarDay">
+	<div class="calendar-date">
+		{{calendarDay day.start}}
+	</div>
+	{{#if eventsReady}}
+		{{#unless hasEvents}}
+			<br>
+			{{mf 'calendar.noCoursesThisDay' "There are no events on this day"}}
+		{{/unless}}
+		{{#if hasEvents}}
+			<div class="calendar-event-list">
+				{{> eventList dataEvents=events withDate=false}}
+			</div>
+		{{/if}}
+	{{else}}
+		{{> loadingRow}}
+	{{/if}}
+</template>
 
-
+<template name="calendarNav">
+	<div class="calendar-nav-container">
+		<div class="calendar-nav">
+			{{> calendarNavControl direction='previous'}}
+			<div class="calendar-nav-moment">
+				<div class="calendar-nav-week">
+					{{mf "calendar.weekNumber" "Week "}} {{weekNr date}}
+				</div>
+				<div class="calendar-nav-date">
+					{{dateLong date}} - {{dateLong (endDateTo date)}}
+				</div>
+			</div>
+			{{> calendarNavControl direction='next'}}
 		</div>
 	</div>
+</template>
+
+<template name="calendarNavControl">
+	<div class="calendar-nav-control">
+		<div class="btn-group">
+			<button type="button"
+					class="btn btn-default js-change-date">
+				{{arrow}}
+				{{mfString direction currentUnit 'short'}}
+			</button>
+			<button type="button"
+					class="btn btn-default dropdown-toggle"
+					aria-expanded="false"
+					aria-haspopup="true"
+					data-toggle="dropdown">
+				<span class="fa fa-list-ul fa-fw" aria-hidden="true"></span>
+			</button>
+			<ul class="dropdown-menu">
+				{{#each navUnits}}
+					<li>
+						<a class="js-change-unit" href="#">
+							{{mfString ../direction this 'long'}}
+						</a>
+					</li>
+				{{/each}}
+			</ul>
+		</div>
+	</div>
+</template>
+
+<template name="calendarNavMF">
+	{{mf 'calendar.previous.week.short' 'previous week'}}
+	{{mf 'calendar.previous.month.short' 'previous month'}}
+	{{mf 'calendar.previous.year.short' 'previous year'}}
+	{{mf 'calendar.next.week.short' 'next week'}}
+	{{mf 'calendar.next.month.short' 'next month'}}
+	{{mf 'calendar.next.year.short' 'next year'}}
+	{{mf 'calendar.previous.week.long' 'Go to previous week'}}
+	{{mf 'calendar.previous.month.long' 'Go to previous month'}}
+	{{mf 'calendar.previous.year.long' 'Go to previous year'}}
+	{{mf 'calendar.next.week.long' 'Go to next week'}}
+	{{mf 'calendar.next.month.long' 'Go to next month'}}
+	{{mf 'calendar.next.year.long' 'Go to next year'}}
 </template>

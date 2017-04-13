@@ -1,0 +1,83 @@
+<template name="courseCompact">
+	{{#if ready}}
+		<div class="course-compact-wrap">
+			<a href="{{pathFor 'showCourse'}}">
+				<div class="course-compact
+				     {{courseState}}
+				     {{filterPreviewClasses}}">
+					<div class="course-compact-content">
+						<div class="course-compact-title">
+							{{name}}
+						</div>
+						{{> courseCategories}}
+					</div>
+					{{#if nextEvent}}
+						{{> courseCompactEvent}}
+					{{else}}
+						{{> courseCompactRoles}}
+					{{/if}}
+					<div class="tag-group course-groups">
+						{{#each groups}}
+							{{> groupName}}
+						{{/each}}
+					</div>
+				</div>
+			</a>
+		</div>
+	{{/if}}
+</template>
+
+<template name="courseCompactEvent">
+	<div class="course-compact-next-event">
+		{{#with nextEvent}}
+			<div class="course-compact-next-event-date">
+				<span class="fa fa-calendar fa-fw"
+				      aria-hidden="true"></span>
+				{{dateformat_mini startLocal}}
+			</div>
+			<div class="course-compact-next-event-time">
+				<span class="fa fa-clock-o fa-fw"
+				      aria-hidden="true"></span>
+				{{timeformat startLocal}}
+			</div>
+			{{#if venue.name}}
+				<div class="course-compact-next-event-venue">
+					<span class="glyphicon glyphicon-home fa-fw"
+					      aria-hidden="true">
+					</span>
+					{{venue.name}}
+				</div>
+			{{/if}}
+		{{/with}}
+	</div>
+</template>
+
+<template name="courseCompactRoles">
+	<div class="course-compact-roles">
+		<div class="course-compact-role {{roleStateClass 'team'}}"
+		     data-tooltip="{{roleStateTooltip 'team'}}"
+		     href="#">
+			<span class="{{roleIcon 'team'}}"
+			      aria-hidden="true">
+			</span>
+		</div>
+		{{#if requiresRole 'mentor'}}
+			<div class="course-compact-role {{roleStateClass 'mentor'}}"
+			     data-tooltip="{{roleStateTooltip 'mentor'}}"
+			     href="#">
+				<span class="{{roleIcon 'mentor'}}"
+				      aria-hidden="true">
+				</span>
+			</div>
+		{{/if}}
+		{{#if requiresRole 'host'}}
+			<div class="course-compact-role {{roleStateClass 'host'}}"
+			     data-tooltip="{{roleStateTooltip 'host'}}"
+			     href="#">
+				<span class="{{roleIcon 'host'}}"
+				      aria-hidden="true">
+				</span>
+			</div>
+		{{/if}}
+	</div>
+</template>

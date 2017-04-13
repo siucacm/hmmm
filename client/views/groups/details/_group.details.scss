@@ -1,0 +1,57 @@
+.group-details .editable {
+	background-color: none;
+}
+
+.group-details-header {
+	@include clearfix;
+	background-color: darken($group-bg, 10%);
+	font-size: x-large;
+}
+
+.group-details-logo {
+	@include td-float(left);
+}
+
+.group-details-name {
+	@include td-float(left);
+	padding: 7px;
+}
+
+.js-group-settings {
+	font-size: x-large;
+	line-height: $line-height-base;
+	// padding: 7px;
+	position: absolute;
+	@include td-pos(right, 6px);
+	top: 25px;
+}
+
+.js-group-remove-filter {
+	font-size: x-large;
+	line-height: $line-height-base;
+	// padding: 7px;
+	position: absolute;
+	@include td-pos(right, 0);
+	top: 0;
+}
+
+.group-details-short {
+	@include td-float(right);
+	@include td-margin(right, 7px);
+	padding: 7px;
+	@include td-text-align(right);
+}
+
+.group-details-body {
+	background: $group-bg;
+}
+
+.group-details-claim {
+	font-size: large;
+}
+
+.group-details-description {
+	height: auto;
+	max-height: 150px;
+	min-height: 100px;
+}

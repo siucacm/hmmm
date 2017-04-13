@@ -1,3 +1,6 @@
+import '/imports/Profile.js';
+import '/imports/LocalTime.js';
+
 Router.configure({
 	layoutTemplate: 'layout',
 	notFoundTemplate: 'notFound',
@@ -40,16 +43,16 @@ Router.map(function () {
 			var event;
 			var create = 'create' == this.params._id;
 			if (create) {
-				var propose = moment().add(1, 'week').startOf('hour');
+				var propose = LocalTime.now().add(1, 'week').startOf('hour');
 				event = {
 					new: true,
-					start: propose.toDate(),
-					end: moment(propose).add(2, 'hour').toDate(),
+					startLocal: LocalTime.toString(propose),
+					endLocal: LocalTime.toString(moment(propose).add(2, 'hour')),
 				};
 				var course = Courses.findOne(this.params.query.courseId);
 				if (course) {
 					event.title = course.name;
-					event.course_id = course._id;
+					event.courseId = course._id;
 					event.region = course.region;
 					event.description = course.description;
 					event.internal = course.internal;
@@ -71,4 +74,70 @@ Router.map(function () {
 
 		}
 	});
+});
+
+
+Router.map(function () {
+	this.route('profile', {
+		path: 'profile',
+		waitOn: function () {
+			return [
+				Meteor.subscribe('currentUser'),
+				Meteor.subscribe('groupsFind', { own: true }),
+				Meteor.subscribe('venuesFind', { editor: Meteor.userId() })
+			];
+		},
+		data: function () {
+			var data = {};
+			var user = Meteor.user();
+			data.loggedIn = !!user;
+			if (data.loggedIn) {
+				var userdata = {
+					_id: user._id,
+					name: user.username,
+					privacy: user.privacy,
+					notifications: user.notifications,
+					groups: GroupLib.find({ own: true }),
+					venues: Venues.find({ editor: user._id })
+				};
+				userdata.have_email = user.emails && user.emails.length > 0;
+				if (userdata.have_email) {
+					userdata.email = user.emails[0].address;
+					userdata.verified = !!user.emails[0].verified;
+				}
+
+				data.user = userdata;
+				data.involvedIn = coursesFind({ userInvolved: user._id });
+			}
+			return data;
+		},
+		onAfterAction: function() {
+			var user = Meteor.users.findOne();
+			if (!user) return;
+			document.title = webpagename + 'My Profile_Settings - ' + user.username;
+		}
+	});
+});
+
+Router.route('/profile/unsubscribe/:token', function() {
+
+	var unsubToken = this.params.token;
+
+	var accepted = Profile.Notifications.unsubscribe(unsubToken);
+
+	var query = {};
+	if (accepted) {
+		query.unsubscribed = '';
+	} else {
+		query['unsubscribe-error'] = '';
+	}
+
+	this.response.writeHead(302, {
+		'Location': Router.url('profile', {}, { query: query })
+	});
+
+	this.response.end();
+}, {
+	name: 'profile.unsubscribe',
+	where: 'server'
 });

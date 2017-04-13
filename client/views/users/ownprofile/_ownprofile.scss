@@ -1,0 +1,34 @@
+.profile-info {
+	$background-color: lighten($user-bg, 5%);
+
+	background-color: $background-color;
+	border: 1px solid darken($background-color, 3%);
+}
+
+.profile-delete-confirmation {
+	$background-color: lighten($brand-danger, 20%);
+
+	background-color: $background-color;
+	border: 1px solid darken($background-color, 20%);
+	padding: 15px 15px 0;
+}
+
+.translate-link {
+	@include btn-lg;
+}
+
+.profile-grouplist .groups {
+	@include list-unstyled;
+}
+
+.profile-grouplist .groups li {
+	margin-bottom: 10px;
+}
+
+.mail-verified {
+	@include td-margin(left, 10px);
+}
+
+.mail-verified .fa {
+	color: $gray;
+}

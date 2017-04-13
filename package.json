@@ -1,0 +1,36 @@
+{
+  "name": "openki",
+  "version": "0.5.1",
+  "description": "CourseOragnisationPlatform",
+  "main": "server/start.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {
+    "babel-runtime": "^6.20.0",
+    "bcrypt": "^0.8.7",
+    "bson": "^0.5.6",
+    "geoip-lite": "^1.1.8",
+    "moment-timezone": "^0.5.11"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "bin/test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Openki/Openki.git"
+  },
+  "keywords": [
+    "education",
+    "self-organization",
+    "calendar",
+    "community"
+  ],
+  "author": "Openki-devs",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/Openki/Openki/issues"
+  },
+  "homepage": "http://about.openki.net"
+}

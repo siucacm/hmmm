@@ -4,6 +4,7 @@
 // "categories"    -> [ID_categories]
 // "tags"          -> List of Strings  (not used)
 // "groups"        -> List ID_groups
+// groupOrganizers List of group ID that are allowed to edit the course
 // "description"   -> String
 // "slug"          -> String
 // "region"        -> ID_region
@@ -11,24 +12,38 @@
 // "createdby"     -> ID_user
 // "time_created"  -> Date
 // "time_lastedit" -> Date
-// "time_lastenrol"-> Date
 // "roles"         -> [role-keys]
 // "members"       -> [{"user":ID_user,"roles":[role-keys]},"comment":string]
 // "internal"      -> Boolean
-// ===========================
+
+/** Calculated fields
+  *
+  * editors: List of user and group id allowed to edit the course, calculated from members and groupOrganizers
+  * futureEvents: count of events still in the future for this course
+  * nextEvent: next upcoming event object, only includes the _id and start field
+  * lastEvent: most recent event object, only includes the _id and start field
+  */
+
 
 Course = function() {
 	this.members = [];
 	this.roles = [];
+	this.groupOrganizers = [];
 };
 
+
+/** Check whether a user may edit the course.
+  *
+  * @param {Object} user
+  * @return {Boolean}
+  */
 Course.prototype.editableBy = function(user) {
 	if (!user) return false;
 	var isNew = !this._id;
 
 	return isNew // Anybody may create a new course
 		|| privileged(user, 'admin') // Admins can edit all courses
-		|| hasRoleUser(this.members, 'team', user._id); // Team members may edit the course
+		|| _.intersection(user.badges, this.editors).length > 0;
 };
 
 Courses = new Meteor.Collection("Courses", {
@@ -45,12 +60,12 @@ function addRole(course, role, user) {
 		{ $addToSet: { 'members': { user: user, roles: [ role ]} }}
 	);
 
-	var result = Courses.update(
+	Courses.update(
 		{ _id: course._id, 'members.user': user },
 		{ '$addToSet': { 'members.$.roles': role }}
 	);
 
-	if (result != 1) throw new Error("addRole affected "+result+" documents");
+	Courses.updateGroups(course._id);
 }
 
 
@@ -65,42 +80,35 @@ function removeRole(course, role, user) {
 		{ _id: course._id },
 		{ $pull: { members: { roles: { $size: 0 } }}}
 	);
+
+	Courses.updateGroups(course._id);
 }
 
+/** @summary Determine whether there is a member with the given role
+  * @param members list of members
+  * @param role role key
+  * @return true if there is a member with the given role, and false otherwise.
+  */
 hasRole = function(members, role) {
 	if (!members) return false;
-	var has = false;
-	members.forEach(function(member) {
-		if (member.roles.indexOf(role) !== -1) {
-			has = true;
-			return true;
-		}
+	return members.some(function(member) {
+		return member.roles.indexOf(role) !== -1;
 	});
-	return has;
 };
 
+/** @summary Determine whether a given user has a given role in a members list
+  * @param members list of members
+  * @param role role key
+  * @param userId user ID to check
+  * @return whether the user has this role
+  */
 hasRoleUser = function(members, role, userId) {
-	var has = false;
-	var loggeduser = Meteor.user();
+	var matchRole = function(member) {
+		return member.user == userId
+		    && member.roles.indexOf(role) !== -1;
+	};
 
-	members.forEach(function(member) {
-		if (loggeduser && loggeduser._id == userId && loggeduser.anonId && loggeduser.anonId.indexOf(member.user) != -1) {
-			if(member.roles.indexOf(role) !== -1) has = 'anon';
-		}
-	});
-
-	members.forEach(function(member) {
-		if (member.user == userId) {
-			if (member.roles.indexOf(role) !== -1) {
-				has = 'subscribed';
-			}
-			
-			// terminate forEach early
-			return true;
-		}
-	});
-
-	return has;
+	return members.some(matchRole);
 };
 
 maySubscribe = function(operatorId, course, userId, role) {
@@ -140,13 +148,69 @@ maySubscribe = function(operatorId, course, userId, role) {
 	return true;
 };
 
+mayUnsubscribe = function(operatorId, course, userId, role) {
+	if (!userId) return false;
+
+	// Do not allow unsubscribing when not subscribed
+	if (!hasRoleUser(course.members, role, userId)) return false;
+
+	// Admins may do anything
+	if (privileged(operatorId, 'admin')) {
+		return true;
+	}
+
+	// The team role is restricted
+	if ('team' === role) {
+
+		// Only members of the team can take-out other people
+		return hasRoleUser(course.members, 'team', operatorId);
+	}
+
+	// The other roles can only be chosen by the users themselves
+	return operatorId === userId;
+};
+
+// Update list of editors
+Courses.updateGroups = function(courseId) {
+	untilClean(function() {
+		var course = Courses.findOne(courseId);
+		if (!course) return true; // Yes Mylord the nonexisting course was duly updated please don't throw a tantrum
+
+		var editors = course.groupOrganizers.slice();
+
+		course.members.forEach(function(member) {
+			if (member.roles.indexOf('team') >= 0) {
+				editors.push(member.user);
+			}
+		});
+
+		// We have to use the Mongo collection API because Meteor does not
+		// expose the modification counter
+		var rawCourses = Courses.rawCollection();
+		var result = Meteor.wrapAsync(rawCourses.update, rawCourses)(
+			{ _id: course._id },
+			{ $set: { editors: editors } },
+			{ fullResult: true }
+		);
+		return result.result.nModified === 0;
+	});
+
+	// At some point we'll have to figure out a proper caching hierarchy
+	Meteor.call('event.updateGroups', { courseId: courseId });
+};
+
 
 coursesFind = function(filter, limit) {
 	var find = {};
+	var sort = {time_lastedit: -1, time_created: -1};
 	if (filter.region && filter.region != 'all') find.region = filter.region;
 
-	if (filter.upcomingEvent) {
-		find.nextEvent = { $ne: null };
+	if (filter.upcomingEvent === true) {
+		find.futureEvents = { $gt: 0 };
+		sort = {"nextEvent.start": 1, time_lastedit: -1};
+	}
+	if (filter.upcomingEvent === false) {
+		find.futureEvents = 0;
 	}
 
 	var mustHaveRoles = [];
@@ -202,28 +266,22 @@ coursesFind = function(filter, limit) {
 
 		find.$and = searchQueries;
 	}
-	var options = { limit: limit, sort: {time_lastedit: -1, time_created: -1} };
+	var options = { limit: limit, sort: sort };
 	return Courses.find(find, options);
 };
 
 if (Meteor.isServer) {
 	Meteor.methods({
-		add_role: function(courseId, userId, role, incognito) {
+		add_role: function(courseId, userId, role) {
 			check(courseId, String);
 			check(userId, String);
 			check(role, String);
-			check(incognito, Boolean);
 
 			var user = Meteor.users.findOne(userId);
 			if (!user) throw new Meteor.Error(404, "User not found");
 
 			var operator = Meteor.user();
 			if (!operator) throw new Meteor.Error(401, "please log in");
-
-			var forThemself = operator._id === user._id;
-			if (!forThemself && incognito) {
-				throw new Meteor.Error(401, "not permitted");
-			}
 
 			var course = Courses.findOne({_id: courseId});
 			if (!course) throw new Meteor.Error(404, "Course not found");
@@ -238,64 +296,114 @@ if (Meteor.isServer) {
 				throw new Meteor.Error(401, "not permitted");
 			}
 
-			// The subscriptionId is the user._id unless we're subscribing incognito
-			var subscriptionId = false;
+			addRole(course, role, user._id);
 
-			if (incognito) {
-				// Re-use anonId if already used on another role
-				if (user.anonId) {
-					_.each(course.members, function(member){
-						if (user.anonId.indexOf(member.user) != -1) {
-							subscriptionId = member.user;
-						}
-					});
-				}
-
-				if (!subscriptionId) {
-				subscriptionId = Meteor.call('generateAnonId');
-				}
-			}
-
-			if (!subscriptionId){
-				subscriptionId = user._id;
-			}
-
-			addRole(course, role, subscriptionId);
-			var time = new Date();
-			Courses.update({_id: courseId}, { $set: {time_lastedit: time}}, checkUpdateOne);
+			// Update the modification date
+			Courses.update(courseId, { $set: {time_lastedit: new Date()} });
 		},
 
-		remove_role: function(courseId, role) {
+		remove_role: function(courseId, userId, role) {
 			check(role, String);
+			check(userId, String);
 			check(courseId, String);
 
-			var user = Meteor.user();
-			if (!user) throw new Meteor.Error(401, "please log in");
+			var user = Meteor.users.findOne(userId);
+			if (!user) throw new Meteor.Error(404, "User not found");
+
+			var operator = Meteor.user();
+			if (!operator) throw new Meteor.Error(401, "please log in");
 
 			var course = Courses.findOne({_id: courseId});
 			if (!course) throw new Meteor.Error(404, "Course not found");
 
-			// The subscriptionId is the user._id unless we're delisting incognito
-			var subscriptionId = false;
+			// do nothing if user is not subscribed with this role
+			if (!hasRoleUser(course.members, role, userId)) return true;
 
-			_.each(course.members, function(member) {
-				if (
-					user.anonId
-					&& user.anonId.indexOf(member.user) != -1
-					&& (member.roles.indexOf(role) != -1)
-				) {
-					subscriptionId = member.user;
-				}
-			});
-
-			if (!subscriptionId){
-				subscriptionId = user._id;
+			// Check permissions
+			 if (!mayUnsubscribe(operator._id, course, user._id, role)) {
+				throw new Meteor.Error(401, "not permitted");
 			}
 
-			removeRole(course, role, subscriptionId);
+			removeRole(course, role, user._id);
 		}
 	});
 }
+
+
+// The code to update the groups and groupOrganizers field must do the same
+// thing for Courses and Events. So we parameterize the methods
+// with a collection passed as argument on construction.
+UpdateMethods = {
+	/** Create an update method for the groups field
+	  *
+	  * @param {Object} collection - the collection the changes will be applied to when the method is called
+	  * @return {function} A function that can be used as meteor method
+	  */
+	Promote: function(collection) {
+		return function(docId, groupId, enable) {
+			check(docId, String);
+			check(groupId, String);
+			check(enable, Boolean);
+
+			var doc = collection.findOne(docId);
+			if (!doc) throw new Meteor.Error(404, "Doc not found");
+
+			var group = Groups.findOne(groupId);
+			if (!group) throw new Meteor.Error(404, "Group not found");
+
+			var user = Meteor.user();
+			if (!user) throw new Meteor.Error(401, "not permitted");
+
+			var mayPromote = user.mayPromoteWith(group._id);
+			var mayEdit = doc.editableBy(user);
+
+			var update = {};
+			if (enable) {
+				// The user is allowed to add the group if she is part of the group
+				if (!mayPromote) throw new Meteor.Error(401, "not permitted");
+				update.$addToSet = { 'groups': group._id };
+			} else {
+				// The user is allowed to remove the group if she is part of the group
+				// or if she has editing rights on the course
+				if (!mayPromote && !mayEdit) throw new Meteor.Error(401, "not permitted");
+				update.$pull = { 'groups': group._id, groupOrganizers: group._id };
+			}
+
+			collection.update(doc._id, update);
+			if (Meteor.isServer) collection.updateGroups(doc._id);
+        };
+	},
+
+	/** Create an update method for the groupOrganizers field
+	  *
+	  * @param {Object} collection - the collection the changes will be applied to when the method is called
+	  * @return {function} A function that can be used as meteor method
+	  */
+    Editing: function(collection) {
+		return function(docId, groupId, enable) {
+			check(docId, String);
+			check(groupId, String);
+			check(enable, Boolean);
+
+			var doc = collection.findOne(docId);
+			if (!doc) throw new Meteor.Error(404, "Doc not found");
+
+			var group = Groups.findOne(groupId);
+			if (!group) throw new Meteor.Error(404, "Group not found");
+
+			var user = Meteor.user();
+			if (!user || !doc.editableBy(user)) throw new Meteor.Error(401, "Not permitted");
+
+			var update = {};
+			var op = enable ? '$addToSet' : '$pull';
+			update[op] = { 'groupOrganizers': group._id };
+
+			collection.update(doc._id, update);
+			if (Meteor.isServer) collection.updateGroups(doc._id);
+		};
+	},
+};
+
 
 Meteor.methods({
 
@@ -306,9 +414,8 @@ Meteor.methods({
 		if (!course) throw new Meteor.Error(404, "Course not found");
 
 		Courses.update(
-			{ _id: course._id, 'members.user': Meteor.userId() },  //TODO: not allocated to anon user
-			{ $set: { 'members.$.comment': comment } },
-			checkUpdateOne
+			{ _id: course._id, 'members.user': Meteor.userId() },
+			{ $set: { 'members.$.comment': comment } }
 		);
 	},
 
@@ -348,39 +455,41 @@ Meteor.methods({
 		/* Changes we want to perform */
 		var set = {};
 
-		_.each(Roles.find().fetch(), function(roletype) {
-			var type = roletype.type;
-			var should_have = roletype.preset || changes.roles && changes.roles[type];
-			var have = course.roles.indexOf(type) !== -1;
+		if (changes.roles) {
+			_.each(Roles, function(roletype) {
+				var type = roletype.type;
+				var should_have = roletype.preset || changes.roles && changes.roles[type];
+				var have = course.roles.indexOf(type) !== -1;
 
-			if (have && !should_have) {
-				Courses.update(
-					{ _id: courseId },
-					{ $pull: { roles: type }},
-					checkUpdateOne
-				);
-
-				// HACK
-				// due to a mongo limitation we can't { $pull { 'members.roles': type } }
-				// so we keep removing one by one until there are none left
-				while(Courses.update(
-					{ _id: courseId, "members.roles": type },
-					{ $pull: { 'members.$.roles': type }}
-				));
-			}
-			if (!have && should_have) {
-				if (isNew) {
-					set.roles = set.roles || [];
-					set.roles.push(type);
-				} else {
+				if (have && !should_have) {
 					Courses.update(
 						{ _id: courseId },
-						{ $addToSet: { roles: type }},
+						{ $pull: { roles: type }},
 						checkUpdateOne
 					);
+
+					// HACK
+					// due to a mongo limitation we can't { $pull { 'members.roles': type } }
+					// so we keep removing one by one until there are none left
+					while(Courses.update(
+						{ _id: courseId, "members.roles": type },
+						{ $pull: { 'members.$.roles': type }}
+					));
 				}
-			}
-		});
+				if (!have && should_have) {
+					if (isNew) {
+						set.roles = set.roles || [];
+						set.roles.push(type);
+					} else {
+						Courses.update(
+							{ _id: courseId },
+							{ $addToSet: { roles: type }},
+							checkUpdateOne
+						);
+					}
+				}
+			});
+		}
 
 		if (changes.description) {
 			set.description = changes.description.substring(0, 640*1024); /* 640 k ought to be enough for everybody  -- Mao */
@@ -417,10 +526,13 @@ Meteor.methods({
 			set.region = region._id;
 
 			/* When a course is created, the creator is automatically added as sole member of the team */
-			set.members = [{ user: user._id, roles: ['team'], comment: '(has proposed this course)'}];
+			set.members = [{ user: user._id, roles: ['team'], comment: mf('courses.creator.defaultMessage', '(has proposed this course)')}];
+			set.editors = [user._id];
 			set.createdby = user._id;
 			set.time_created = new Date();
 			courseId = Courses.insert(set);
+
+			Meteor.call('updateNextEvent', courseId);
 		} else {
 			Courses.update({ _id: courseId }, { $set: set }, checkUpdateOne);
 		}
@@ -432,25 +544,60 @@ Meteor.methods({
 		var course = Courses.findOne({_id: courseId});
 		if (!course) throw new Meteor.Error(404, "no such course");
 		if (!course.editableBy(Meteor.user())) throw new Meteor.Error(401, "edit not permitted");
-		Events.remove({ course_id: courseId });
+		Events.remove({ courseId: courseId });
 		Courses.remove(courseId);
 	},
 
 	// Update the nextEvent field for the courses matching the selector
 	updateNextEvent: function(selector) {
 		Courses.find(selector).forEach(function(course) {
+			var futureEvents = Events.find(
+				{courseId: course._id, start: {$gt: new Date()}}
+			).count();
+
 			var nextEvent = Events.findOne(
-				{course_id: course._id, start: {$gt: new Date()}},
-				{sort: {start: 1}, fields: {start: 1, _id: 1}}
+				{ courseId: course._id, start: {$gt: new Date()} },
+				{ sort: {start: 1}, fields: {startLocal: 1, start: 1, _id: 1, venue: 1} }
 			);
+
 			var lastEvent = Events.findOne(
-				{course_id: course._id, start: {$lt: new Date()}},
-				{sort: {start: -1}, fields: {start: 1, _id: 1}}
+				{ courseId: course._id, start: {$lt: new Date()} },
+				{ sort: {start: -1}, fields: {startLocal: 1, start: 1, _id: 1, venue: 1} }
 			);
+
 			Courses.update(course._id, { $set: {
+				futureEvents: futureEvents,
 				nextEvent: nextEvent,
-				lastEvent: lastEvent
+				lastEvent: lastEvent,
 			} });
 		});
-	}
+	},
+
+
+	/** Add or remove a group from the groups list
+	  *
+	  * @param {String} courseId - The course to update
+	  * @param {String} groupId - The group to add or remove
+	  * @param {Boolean} add - Whether to add or remove the group
+	  *
+	  */
+	'course.promote': UpdateMethods.Promote(Courses),
+
+
+	/** Add or remove a group from the groupOrganizers list
+	  *
+	  * @param {String} courseId - The course to update
+	  * @param {String} groupId - The group to add or remove
+	  * @param {Boolean} add - Whether to add or remove the group
+	  *
+	  */
+	'course.editing': UpdateMethods.Editing(Courses),
+
+
+	// Recalculate the editors field
+	'course.updateGroups': function(selector) {
+		Courses.find(selector).forEach(function(course) {
+			Courses.updateGroups(course._id);
+		});
+	},
 });

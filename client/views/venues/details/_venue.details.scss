@@ -1,0 +1,18 @@
+.location-details-header {
+	background-color: $venue-bg;
+	color: $venue-color;
+}
+
+.location-details-header > img {
+	@include td-float(right);
+	height: 90px;
+	@include td-padding(left, ($grid-gutter-width / 2));
+}
+
+.location-details-body {
+	background-color: $blue-lighter;
+}
+
+.venue-property-title {
+	font-weight: bold;
+}

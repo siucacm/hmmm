@@ -1,0 +1,34 @@
+html,
+body {
+	height: 100%;
+}
+
+#wrap {
+	margin: 0 auto (0 - $footer-height);
+	min-height: 100%;
+}
+
+#outer {
+	padding-top: $navbar-height;
+}
+
+#outer.test-warning {
+	padding-top: $navbar-height + 19px;
+}
+
+#outer.test-warning .calendar-nav-container {
+	top: $navbar-height + 19px;
+}
+
+.push {
+	height: $footer-height;
+}
+
+#maincontent {
+	padding: 25px 0 50px;
+}
+
+#maincontent > *:first-child {
+	margin-top: 0;
+	padding-top: 0;
+}

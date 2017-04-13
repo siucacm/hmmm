@@ -18,36 +18,26 @@ Meteor.publish ('courseDetails', function(id) {
 
 Meteor.publish  ('coursesFind', coursesFind);
 
-Meteor.publish ('roles', function(){
-	return Roles.find();
-});
-
 Meteor.publish ('regions', function(){
 	return Regions.find();
 });
 
 
-/////////////////////////////////////////////////// locations
-Meteor.publish ('locations', function(region) {
-	check(region, String);
+Meteor.publish ('venues', function(region) {
+	check(region, Match.Maybe(String));
 	var find = {};
-	if (region != 'all') find.region = region;
-	return Locations.find(find);
+	if (region) find.region = region;
+	return Venues.find(find);
 });
 
-Meteor.publish ('locationNames', function(region) {
-	var find = {};
-	if (region != 'all' && region !== undefined) find.region = region;
-	return Locations.find(find);
+Meteor.publish ('venueDetails', function(id) {
+	return Venues.find(id);
 });
 
-Meteor.publish ('locationDetails', function(id) {
-	return Locations.find(id);
+Meteor.publish('venuesFind', function(find, limit) {
+	return venuesFind(find, limit);
 });
 
-Meteor.publish('locationsFind', function(find, limit) {
-	return locationsFind(find, limit);
-});
 
 Meteor.publish('discussion', function(courseId) {
 	return CourseDiscussions.find({ courseId: courseId });
@@ -70,7 +60,7 @@ Meteor.publish('event', function(eventId) {
 Meteor.publish ('eventsFind', eventsFind);
 
 Meteor.publish('eventsForCourse', function(courseId) {
-	return Events.find({course_id: courseId});
+	return Events.find({courseId: courseId});
 });
 
 Meteor.publish('affectedReplica', function(eventId) {

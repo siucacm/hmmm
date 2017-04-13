@@ -6,19 +6,29 @@ logAsyncErrors = function(err, ret) {
 	return ret;
 };
 
-// Repeatedly apply a function until it reports no update
-// The wrapped function will be called repeatedly until it returns true
-// This helps ensuring racing cache updates are settled with
-// the last version winning
-untilClean = function(clean) {
-	var tries = 0;
-	for (; tries < 3; tries++) {
-		if (clean()) return;
-	}
+/** Add a toJSON method if the object's prototype doesn't have one
+  * @param object o
+  */
+function extendPrototypeToJSON(o) {
+	// http://stackoverflow.com/a/18391400/2652567
+	if (!('toJSON' in o.prototype)) {
+		Object.defineProperty(o.prototype, 'toJSON', {
+			value: function () {
+				var alt = {};
 
-	// Ooops we ran out of tries.
-	// This either means the updates to the cached fields happen faster than
-	// we can cache them (then the cache updates would have to be throttled) or
-	// that the clean function is broken (much more likely).
-	throw new Error("Giving up after trying to apply cleansing function "+tries+" times.");
-};
+				Object.getOwnPropertyNames(this).forEach(function (key) {
+					alt[key] = this[key];
+				}, this);
+
+				return alt;
+			},
+			configurable: true,
+			writable: true
+		});
+	}
+}
+
+// This is useful in serializing errors to the Log
+extendPrototypeToJSON(Error);
+extendPrototypeToJSON(Meteor.Error);
+

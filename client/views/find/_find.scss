@@ -1,0 +1,41 @@
+.find-heading {
+	color: $blue;
+	margin-top: 0;
+
+	@media (max-width: $screen-xs) {
+		font-size: x-large;
+		margin: 0 0 10px;
+	}
+}
+
+.js-search-field {
+	@include td-make-xs-column(12);
+	@include td-make-md-column(5);
+	padding: 0;
+}
+
+.js-search-input {
+	font-size: large;
+}
+
+.no-results {
+	font-size: large;
+	max-width: 400px;
+}
+
+.no-results-body > .fa-exclamation-circle {
+	color: $brand-warning;
+}
+
+.no-results > .btn-group {
+	margin-top: 10px;
+}
+
+.filter-no-match,
+.filter-no-match-delayed {
+	opacity: .33;
+}
+
+.show-more-courses {
+	text-align: center;
+}

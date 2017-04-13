@@ -1,3 +1,5 @@
+import '/imports/startup/eventnotifications.js';
+
 Meteor.startup(function () {
 
 	applyUpdates();
@@ -14,15 +16,9 @@ Meteor.startup(function () {
 	}
 	Version.update({}, {$set: {lastStart: new Date() }});
 
-
-	if (Meteor.settings.testdata) {
-		loadTestRegionsIfNone();       // Regions    from server/data/testing.regions.js
-		loadLocationsIfNone();         // Locations  from server/data/testing.locations.js
-		loadGroupsIfNone();            // Groups     from server/data/testing.groups.js
-		loadCoursesIfNone(Meteor.settings.testdata);
-		createEventsIfNone();          // Events     in   server/testing.createnload.data.js (generic)
-		loadTestEvents();              // Events     from server/data/testing.events.js
-		createCommentsIfNone();        // Comments   in   server/testing.createnload.data.js (generic)
+	if (Meteor.settings.robots === false) {
+		robots.addLine('User-agent: *');
+		robots.addLine('Disallow: /');
 	}
 
 	var serviceConf = Meteor.settings.service;
@@ -72,9 +68,18 @@ Meteor.startup(function () {
 		}
 	}
 
-	// On startup, resync location cache in events
-	Meteor.call('updateEventLocation', {}, logAsyncErrors);
+	/* Initialize cache-fields on startup */
 
+	// Resync location cache in events
+	Meteor.call('updateEventVenue', {}, logAsyncErrors);
+
+	// Update list of organizers per course
+	Meteor.call('course.updateGroups', {}, logAsyncErrors);
+
+	// Update List of badges per user
+	Meteor.call('user.updateBadges', {}, logAsyncErrors);
+
+	Meteor.call('updateRegionCounters', {}, logAsyncErrors);
 
 	// Keep the nextEvent entry updated
 	// On startup do a full scan to catch stragglers
@@ -83,6 +88,8 @@ Meteor.startup(function () {
 		function() {
 			// Update nextEvent for courses where it expired
 			Meteor.call('updateNextEvent', { 'nextEvent.start': { $lt: new Date() }});
+
+			Meteor.call('updateRegionCounters', {}, logAsyncErrors);
 		},
 		60*1000 // Check every minute
 	);

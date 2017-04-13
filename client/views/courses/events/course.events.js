@@ -1,24 +1,38 @@
-Template.course_events.helpers({
+Template.courseEvents.onCreated(function() {
+	var instance = this;
+	var courseId = this.data.course._id;
+
+	instance.eventSub = subs.subscribe('eventsForCourse', courseId);
+
+	var maxEventsShown = 4;
+	instance.showAllEvents = new ReactiveVar(false);
+
+	instance.haveEvents = function() {
+		return eventsFind({ course: courseId, start: minuteTime.get() }).count() > 0;
+	};
+
+	instance.haveMoreEvents = function() {
+		return eventsFind({ course: courseId, start: minuteTime.get() }).count() > maxEventsShown;
+	};
+
+	instance.ongoingEvents = function() {
+		return eventsFind({ course: courseId, ongoing: minuteTime.get() });
+	};
+
+	instance.futureEvents = function() {
+		var limit = instance.showAllEvents.get() ? 0 : maxEventsShown;
+
+		return eventsFind({ course: courseId, after: minuteTime.get() }, limit);
+	};
+});
+
+Template.courseEvents.helpers({
 	mayAdd: function() {
-		return hasRoleUser(this.course.members, 'team', Meteor.userId());
+		return this.course.editableBy(Meteor.user());
 	},
 
 	haveEvents: function() {
 		return Template.instance().haveEvents();
-	},
-
-	pastEvents:  function() {
-		var events = Template.instance().pastEvents().fetch();
-		events.reverse(); // eventsFind() is too smart for us
-
-		// HACK Add a balancing element if the count is uneven because the past events should stack up from the bottom
-		if (events.length % 2 == 1) events.unshift(false);
-
-		return events;
-	},
-
-	havePastEvents: function() {
-		return Template.instance().pastEvents().count() > 0;
 	},
 
 	ongoingEvents: function() {
@@ -36,63 +50,61 @@ Template.course_events.helpers({
 	haveFutureEvents: function() {
 		return Template.instance().futureEvents().count() > 0;
 	},
-});
 
+	haveMoreEvents: function() {
+		var instance = Template.instance();
+		return instance.haveMoreEvents() && (!instance.showAllEvents.get());
+	},
 
-Template.course_events.onCreated(function() {
-	var instance = this;
-	var courseId = this.data.course._id;
-
-	instance.autorun(function() {
-		subs.subscribe('eventsForCourse', courseId);
-	});
-
-	instance.haveEvents = function() {
-		return eventsFind({ course: courseId }).count() > 0;
-	};
-
-	instance.pastEvents = function() {
-		return eventsFind({ course: courseId, before: minuteTime.get() });
-	};
-
-	instance.ongoingEvents = function() {
-		return eventsFind({ course: courseId, ongoing: minuteTime.get() });
-	};
-
-	instance.futureEvents = function() {
-		return eventsFind({ course: courseId, after: minuteTime.get() });
-	};
-});
-
-
-Template.course_events.rendered = function() {
-	var scrollableContainer = this.$(".course_events");
-
-	if (scrollableContainer.length === 0) return; // No events
-
-	scrollableContainer.scroll(function (event) {
-		var trueHeight = scrollableContainer[0].scrollHeight - scrollableContainer.height();
-		var reactiveArea = trueHeight - 1;
-
-		$(".fade_effect_top").fadeIn(200);
-		$(".fade_effect_bottom").fadeIn(200);
-
-		if (scrollableContainer.scrollTop() > reactiveArea) {
-			$(".fade_effect_bottom").fadeOut(200);
-		}
-		else if (scrollableContainer.scrollTop() < 1) {
-			$(".fade_effect_top").fadeOut(200);
-		}
-	});
-	scrollableContainer.scrollTop(this.$("hr.now").offset().top-scrollableContainer.offset().top); //halp
-};
-
-Template.course.rendered = function() {
-	this.$("[data-toggle='tooltip']").tooltip();
-};
-
-Template.course_events.events({
-	'click button.eventEdit': function () {
-		Router.go('showEvent', { _id: 'create' }, { query: { courseId: this.course._id } });
+	ready: function() {
+		return Template.instance().eventSub.ready();
 	}
+});
+
+Template.courseEvents.events({
+	'click .js-show-all-events': function () {
+		Template.instance().showAllEvents.set(true);
+	},
+
+	'scroll .js-scrollable-container': function(event, instance) {
+		var scrollableContainer = instance.$('.js-scrollable-container');
+
+		// Use dom element to get true height of clipped div
+		// https://stackoverflow.com/questions/4612992/get-full-height-of-a-clipped-div#5627286
+		var trueHeight = scrollableContainer[0].scrollHeight;
+		var visibleHeight = scrollableContainer.height();
+
+		// Compute height and subtract a possible deviation
+		var computedHeight = trueHeight - visibleHeight - 1;
+
+		instance.$(".fade-top ").fadeIn(200);
+
+		if (scrollableContainer.scrollTop() === 0) {
+			instance.$(".fade-top").fadeOut(200);
+		} else if (scrollableContainer.scrollTop() >= computedHeight) {
+			instance.$(".fade-bottom").fadeOut(200);
+		} else {
+			instance.$(".fade-top").fadeIn(200);
+			instance.$(".fade-bottom").fadeIn(200);
+		}
+	}
+});
+
+Template.courseEventAdd.helpers({
+	addEventQuery: function() {
+		return 'courseId=' + this.course._id;
+	}
+});
+
+Template.courseEventAdd.onRendered(function() {
+	var instance = this;
+	var eventCaption = instance.$('.event-caption-add');
+
+	function toggleCaptionClass(e) {
+		var removeClass = e.type == 'mouseout';
+		eventCaption.toggleClass('placeholder', removeClass);
+	}
+
+	eventCaption.on('mouseover mouseout', function(e) { toggleCaptionClass(e); });
+	instance.$('.event-caption-add-text').on('mouseover mouseout', function(e) { toggleCaptionClass(e); });
 });

@@ -1,0 +1,93 @@
+.navbar .navbar-nav > .open > .login-dropdown,
+.navbar .navbar-nav > .dropdown > .login-dropdown {
+	@media (min-width: $screen-sm) {
+		min-width: 300px;
+	}
+}
+
+.user-frame {
+	@media (max-width: $grid-float-breakpoint) {
+		@include clearfix;
+		background-color: $dropdown-bg;
+		padding-top: 15px;
+	}
+}
+
+.ownuser-frame {
+	padding: 0 ($grid-gutter-width / 2);
+}
+
+.ownuser-frame-welcome {
+	font-size: $font-size-h3;
+	text-align: center;
+	margin-top: 10px;
+}
+
+.login {
+	padding: 0 ($grid-gutter-width / 2);
+}
+
+.login .help-block,
+.register .help-block {
+	margin-bottom: 0;
+}
+
+.forgot-pwd-btn-container {
+	@include td-text-align(right);
+}
+
+.forgot-pwd-btn-container > .btn-link {
+	$color: $blue;
+
+	color: $color;
+
+	&:hover {
+		color: darken($color, 20%)
+	}
+}
+
+.external-service-login {
+	text-align: center;
+}
+
+.js-external-service-login-btn {
+	background: none;
+	border: 0;
+	color: $gray-light;
+	padding: 0 9px;
+}
+
+.js-external-service-login-btn .fa {
+	font-size: xx-large;
+}
+
+$external-servies: (
+  google-plus: #dd4b39,
+  facebook: #3b5998,
+  github: #333
+);
+
+@each $service, $color in $external-servies {
+	.fa-#{$service}-square {
+		color: rgba($color, .5);
+
+		&:hover,
+		&:focus {
+			color: $color;
+		}
+	}
+}
+
+.forgot_login {
+	padding: 0 ($grid-gutter-width / 2);
+}
+
+.forgot-pwd-mail-info {
+	display: inline-block;
+	margin-top: -10px;
+}
+
+.registering_disclaimer {
+	margin-top: -10px;
+	text-align: justify;
+}

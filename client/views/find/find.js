@@ -7,7 +7,8 @@ function finderRoute(path) {
 
 			// Add filter options for the homepage
 			return _.extend(query, {
-				internal: false
+				internal: false,
+				region: Session.get('region')
 			});
 		},
 		onAfterAction: function() {
@@ -15,7 +16,7 @@ function finderRoute(path) {
 			if (search) {
 				document.title = webpagename + mf('find.windowtitle', {SEARCH: search}, 'Find "{SEARCH}"');
 			} else {
-				document.title = webpagename + mf('startpage.windowtitle', 'What do you want to learn?');
+				document.title = webpagename + mf('find.WhatLearn?');
 			}
 		}
 	};
@@ -28,30 +29,65 @@ Router.map(function () {
 
 var hiddenFilters = ['upcomingEvent', 'needsHost', 'needsMentor', 'categories'];
 
-var updateUrl = function(event, instance) {
-	event.preventDefault();
-
-	var filterParams = instance.filter.toParams();
-	delete filterParams.region; // HACK region is kept in the session (for bad reasons)
-	var queryString = UrlTools.paramsToQueryString(filterParams);
-
-	var options = {};
-	if (queryString.length) {
-		options.query = queryString;
-	}
-
-	var router = Router.current();
-	Router.go(router.route.getName(), { _id: router.params._id }, options);
-
-	return true;
-};
-
-
 Template.find.onCreated(function() {
 	var instance = this;
 
+	// Reflect filter selection in URI
+	// This creates a browser history entry so it is not done on every filter
+	// change. For example, when the search-field receives keydowns, the filter
+	// is updated but the change is not reflected in the URI.
+	instance.updateUrl = function() {
+		var filterParams = instance.filter.toParams();
+		delete filterParams.region; // HACK region is kept in the session (for bad reasons)
+		delete filterParams.internal;
+		var queryString = UrlTools.paramsToQueryString(filterParams);
+
+		var options = {};
+
+		if (queryString.length) {
+			options.query = queryString;
+		}
+
+		RouterAutoscroll.cancelNext();
+
+		var router = Router.current();
+		Router.go(router.route.getName(), { _id: router.params._id }, options);
+
+		return true;
+	};
+
+
+	instance.updateCategorySearch = function(query) {
+		instance.categorySearch.set(query);
+
+		if (!query) {
+			instance.categorySearchResults.set(categories);
+			return;
+		}
+
+		var lowQuery = query.toLowerCase();
+		var results = {};
+		for (var mainCategory in categories) {
+			if (mf('category.'+mainCategory).toLowerCase().indexOf(lowQuery) >= 0) {
+				results[mainCategory] = [];
+			}
+			for (i = 0; i < categories[mainCategory].length; i++) {
+				var subCategory = categories[mainCategory][i];
+				if (mf('category.'+subCategory).toLowerCase().indexOf(lowQuery) >= 0) {
+					if (results[mainCategory]) results[mainCategory].push(subCategory);
+					else results[subCategory] = [];
+				}
+			}
+		}
+		instance.categorySearchResults.set(results);
+	};
+
+	instance.updateCategorySearchDebounced = _.debounce(instance.updateCategorySearch, 200);
+
 	instance.showingFilters = new ReactiveVar(false);
+	instance.categorySearch = new ReactiveVar('');
 	instance.categorySearchResults = new ReactiveVar(categories);
+	instance.courseLimit = new ReactiveVar(36);
 	instance.coursesReady = new ReactiveVar(false); // Latch
 
 	var filter = Filtering(CoursePredicates);
@@ -63,7 +99,6 @@ Template.find.onCreated(function() {
 		filter
 			.clear()
 			.read(query)
-			.add('region', Session.get('region'))
 			.done();
 	});
 
@@ -79,189 +114,126 @@ Template.find.onCreated(function() {
 	// Update whenever filter changes
 	instance.autorun(function() {
 		var filterQuery = filter.toQuery();
-		var sub = subs.subscribe('coursesFind', filterQuery, 36, function() {
+		instance.coursesReady.set(false);
+
+		// Add one to the limit so we know there is more to show
+		var limit = instance.courseLimit.get() + 1;
+
+		subs.subscribe('coursesFind', filterQuery, limit, function() {
 			instance.coursesReady.set(true);
 		});
 
-		// Workaround: Subscription manager does not call onReady when the sub
-		// is cached and ready
-		// https://github.com/kadirahq/subs-manager/issues/7
-		Tracker.nonreactive(function() {
-			if (sub.ready()) instance.coursesReady.set(true);
-		});
-	});
+		var eventQuery = filter.toQuery();
 
-	// The event display reacts to changes in time as well
-	instance.autorun(function() {
-		var filterQuery = filter.toQuery();
-
-		// Here we show events only when they're not attached to a course
-		filterQuery.standalone = true;
-		filterQuery.after = minuteTime.get();
-		instance.subscribe('eventsFind', filterQuery, 12);
+		// We show events only when they're not attached to a course
+		eventQuery.standalone = true;
+		eventQuery.after = minuteTime.get();
+		instance.subscribe('eventsFind', eventQuery, 12);
 	});
 });
-
-
-Template.find.onRendered(function() {
-	this.$('.dropdown').on('show.bs.dropdown', function(e){
-		$(this).find('.dropdown-menu').first().stop(true, true).slideDown();
-	});
-
-	this.$('.dropdown').on('hide.bs.dropdown', function(e){
-		$(this).find('.dropdown-menu').first().stop(true, true).slideUp();
-	});
-
-	var currentPath = Router.current().route.path(this);
-	$('a[href!="' + currentPath + '"].nav_link').removeClass('active');
-	$('a[href="/"].nav_link').addClass('active');
-});
-
-var updateCategorySearch = function(event, instance) {
-	var query = instance.$('.-searchCategories').val();
-	if (query === '') {
-		instance.categorySearchResults.set(categories);
-		return;
-	}
-
-	var lowQuery = query.toLowerCase();
-	var results = {};
-	for (var mainCategory in categories) {
-		if (mf('category.'+mainCategory).toLowerCase().indexOf(lowQuery) >= 0) {
-			results[mainCategory] = [];
-		}
-		for (i = 0; i < categories[mainCategory].length; i++) {
-			var subCategory = categories[mainCategory][i];
-			if (mf('category.'+subCategory).toLowerCase().indexOf(lowQuery) >= 0) {
-				if (results[mainCategory]) results[mainCategory].push(subCategory);
-				else results[subCategory] = [];
-			}
-		}
-	}
-	instance.categorySearchResults.set(results);
-};
-
-var filterPreview = function(highlightClass, opacity) {
-	$('.courselist_course').not(highlightClass).stop().fadeTo('slow', opacity);
-};
 
 Template.find.events({
-	'submit': updateUrl,
-	'change .-searchField': updateUrl,
-	'change .-filterToggle': function(event, instance) {
-		instance.filter.add('upcomingEvent', instance.$('#hasUpcomingEvent').prop('checked'));
-		instance.filter.add('needsHost', instance.$('#needsHost').prop('checked'));
-		instance.filter.add('needsMentor', instance.$('#needsMentor').prop('checked'));
-		instance.filter.done();
-		updateUrl(event, instance);
-	},
-
-	'keyup .-searchInput': _.debounce(function(event, instance) {
-		instance.filter.add('search', $('.-searchInput').val()).done();
+	'keyup .js-search-input': _.debounce(function(event, instance) {
+		instance.filter.add('search', $('.js-search-input').val()).done();
 		// we don't updateURL() here, only after the field loses focus
 	}, 200),
 
-	'click .-findButton': function(event, instance) {
-		instance.filter.add('search', $('.-searchInput').val()).done();
-		updateURL(event, instance);
+
+	// Update the URI when the search-field was changed an loses focus
+	'change .js-search-field': function(event, instance) {
+		instance.updateUrl();
 	},
 
-	'mouseover .-upcomingEventsFilter': function() {
-		filterPreview('.hasupcomingevents', 0.33);
+
+	'click .js-find-btn': function(event, instance) {
+		event.preventDefault();
+
+		instance.filter.add('search', $('.js-search-input').val()).done();
+		instance.updateUrl();
 	},
 
-	'mouseout .-upcomingEventsFilter': function() {
-		filterPreview('.hasupcomingevents', 1);
+	'mouseover .js-category-label': function(e, instance) {
+		var category = this;
+
+		var previewOptions = {
+			selector: ('.category-' + category),
+			activate: true,
+			instance: instance,
+			delayed: true
+		};
+		courseFilterPreview(previewOptions);
+
+		var categoryTags = instance.$('.js-category-label.category-' + category).parent();
+		categoryTags.addClass('highlight');
 	},
 
-	'mouseover .-needsHostFilter': function() {
-		filterPreview('.needsHost', 0.33);
+	'mouseout .js-category-label': function(e, instance) {
+		var category = this;
+
+		var previewOptions = {
+			selector: ('.category-' + category),
+			activate: false,
+			instance: instance,
+			delayed: true
+		};
+		courseFilterPreview(previewOptions);
+
+		var categoryTags = instance.$('.js-category-label.category-' + category).parent();
+		categoryTags.removeClass('highlight');
 	},
 
-	'mouseout .-needsHostFilter': function() {
-		filterPreview('.needsHost', 1);
+	'mouseover .js-group-label, mouseout .js-group-label': function(e, instance) {
+		var group = this;
+		var activate = e.type == 'mouseover';
+
+		var previewOptions = {
+			selector: ('.group-' + group),
+			activate: activate,
+			instance: instance,
+			delayed: true
+		};
+		courseFilterPreview(previewOptions);
+
+		var groupLabels = instance.$('.js-group-label.group-' + group).parent();
+		if (activate) {
+			setTimeout(function() {
+				groupLabels.toggleClass('highlight');
+			}, 300);
+		} else {
+			groupLabels.toggleClass('highlight');
+		}
 	},
 
-	'mouseover .-needsMentorFilter': function() {
-		filterPreview('.needsMentor', 0.33);
-	},
-
-	'mouseout .-needsMentorFilter': function() {
-		filterPreview('.needsMentor', 1);
-	},
-
-	'keyup .-searchCategories': _.debounce(updateCategorySearch, 100),
-
-	'focus .-searchCategories': function(event, instance) {
-		instance.$('.dropdown-toggle').dropdown('toggle');
-	},
-
-	'click .-showSubcategories': function(event, instance) {
-		$(".-subcategory" + "." + this).toggle();
-		$(".-showSubcategories." + this + " span").toggleClass('fa-angle-down');
-		$(".-showSubcategories." + this + " span").toggleClass('fa-angle-up');
-		event.stopPropagation();
-	},
-
-	'click .category': function(event, instance) {
+	'click .js-category-label': function(event, instance) {
 		instance.filter.add('categories', ""+this).done();
-		instance.$('.-searchCategories').val('');
-		updateCategorySearch(event, instance);
-		updateUrl(event, instance);
+		instance.$('.js-search-categories').val('');
+		instance.updateCategorySearch('');
+		instance.updateUrl();
+		window.scrollTo(0, 0);
 	},
 
-	'mouseover .category': function() {
-		filterPreview(('.'+this), 0.33);
+	'click .js-group-label': function(event, instance) {
+		window.scrollTo(0, 0);
 	},
 
-	'mouseout .category': function() {
-		filterPreview(('.'+this), 1);
-	},
-
-	'click .-removeCategoryFilter': function(event, instance) {
-		instance.filter.remove('categories', ''+this).done();
-		updateUrl(event, instance);
-		return false;
-	},
-
-	'click .show_subcategories': function(e, instance) {
-		$(".subcategory" + "." + this).toggle(0);
-		e.stopPropagation(); //makes dropdown menu stay open
-	},
-
-	'click .-showFilters': function(event, instance) {
+	'click .js-toggle-filter': function(event, instance) {
 		var showingFilters = !instance.showingFilters.get();
 		instance.showingFilters.set(showingFilters);
-		instance.$('.-showFilters').removeClass('alreadyOpen');
-		instance.$('.search_filter').stop().fadeTo('slow', 1);
 
 		if (!showingFilters) {
 			for (var i in hiddenFilters) instance.filter.disable(hiddenFilters[i]);
 			instance.filter.done();
-			updateUrl(event, instance);
-			instance.$('.-showFilters').removeClass('alreadyOpen');
+			instance.updateUrl();
 		}
 	},
 
-	'mouseover .remove-filter.alreadyOpen': function(event, instance) {
-		instance.$('.search_filter').stop().fadeTo('slow', 0.33);
-	},
-
-	'mouseout .remove-filter': function(event, instance) {
-		instance.$('.search_filter').stop().fadeTo('slow', 1);
-		instance.$('.-showFilters').addClass('alreadyOpen');
-	},
-
-	'mouseover .group': function() {
-		filterPreview(('.'+this), 0.33);
-	},
-
-	'mouseout .group': function() {
-		filterPreview(('.'+this), 1);
-	},
-
-	"click .-searchAllRegions": function(event, template){
+	"click .js-all-regions-btn": function(event, instance){
 		Session.set('region', 'all');
+	},
+
+	"click .js-more-courses": function(event, instance) {
+		var courseLimit = instance.courseLimit;
+		courseLimit.set(courseLimit.get() + 36);
 	}
 });
 
@@ -274,10 +246,6 @@ Template.find.helpers({
 		return Template.instance().showingFilters.get();
 	},
 
-	'toggleChecked': function(name) {
-		return Template.instance().filter.get(name) ? 'checked' : '';
-	},
-
 	'newCourse': function() {
 		var instance = Template.instance();
 		var course = courseTemplate();
@@ -285,33 +253,31 @@ Template.find.helpers({
 		return course;
 	},
 
-	'categories': function() {
-		return Template.instance().filter.get('categories');
+	'hasResults': function() {
+		var filterQuery = Template.instance().filter.toQuery();
+		var results = coursesFind(filterQuery, 1);
+
+		return results.count() > 0;
 	},
 
-	'group': function() {
-		var groupId = Template.instance().filter.get('group');
-		if (!groupId) return false;
-		return groupId;
-	},
+	'hasMore': function() {
+		var instance = Template.instance();
+		if (!instance.coursesReady.get()) return false;
 
-	'availableCategories': function() {
-		return Object.keys(Template.instance().categorySearchResults.get('categorySearchResults'));
-	},
+		var filterQuery = instance.filter.toQuery();
+		var limit = instance.courseLimit.get();
+		var results = coursesFind(filterQuery, limit+1);
 
-	'availableSubcategories': function(mainCategory) {
-		return Template.instance().categorySearchResults.get()[mainCategory];
-	},
-
-	'availableGroups': function(group) {
-		return groups[group];
+		return results.count() > limit;
 	},
 
 	'results': function() {
-		var filterQuery = Template.instance().filter.toQuery();
+		var instance = Template.instance();
+		var filterQuery = instance.filter.toQuery();
 
-		return coursesFind(filterQuery, 36);
+		return coursesFind(filterQuery, instance.courseLimit.get());
 	},
+
 
 	'eventResults': function() {
 		var filterQuery = Template.instance().filter.toQuery();
@@ -320,21 +286,36 @@ Template.find.helpers({
 		return eventsFind(filterQuery, 12);
 	},
 
-	'proposeNewBlurb': function() {
-		var instance = Template.instance();
-		var filter = instance.filter.toParams();
-		return !instance.showingFilters.get() && filter.search;
-	},
-
 	'ready': function() {
 		return Template.instance().coursesReady.get();
 	},
 
-	'allRegions': function() {
-		return (Session.get('region') == 'all');
+	'filteredRegion': function() {
+		return !!Template.instance().filter.get('region');
+	},
+
+	'activeFilters': function() {
+		var activeFilters = Template.instance().filter;
+		var filters = ['upcomingEvent', 'needsHost', 'needsMentor', 'categories'];
+		for (var i = 0; i < filters.length; i++) {
+			var isActive = !!activeFilters.get(filters[i]);
+			if (isActive) return true;
+		}
+		return false;
+	},
+
+	'searchIsLimited': function() {
+		var activeFilters = Template.instance().filter;
+		var filters = ['upcomingEvent', 'needsHost', 'needsMentor', 'categories', 'region'];
+		for (var i = 0; i < filters.length; i++) {
+			var isActive = !!activeFilters.get(filters[i]);
+			if (isActive) return true;
+		}
+		return false;
 	},
 
 	'isMobile': function() {
-		return Session.get('screenSize') <= 480; // @screen-xs
+		var screenXS = SCSSVars.screenXS;
+		return Session.get('viewportWidth') <= screenXS;
 	}
 });

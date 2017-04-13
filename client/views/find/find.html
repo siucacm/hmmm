@@ -1,237 +1,120 @@
 <template name="findWrap">
-	<div class="find">
-		<h1>{{mf 'find.WhatLearn?' 'What do you want to learn?'}}</h1>
+	<div class="find container">
+		<h1 class="find-heading">
+			{{mf 'find.WhatLearn?' 'What do I want to learn?'}}
+		</h1>
 		{{> find}}
 	</div>
 </template>
 
 <template name="find">
-	<div class="search">
-		<div class="-searchField">
+	<div class="page-component">
+		<div class="js-search-field">
 			<div class="input-group">
-				<input
+				<input class="js-search-input form-control"
 					type="text"
 					id="find"
-					class="-searchInput"
 					value="{{search}}"
-					placeholder="{{mf 'find.search_placeholder' 'Everything'}}"
-				/>
+					placeholder="{{mf 'find.search_placeholder' 'Everything'}}"/>
 				<span class="input-group-btn">
-					<button class="-findButton" type="button">
+					<button type="button" class="btn btn-success js-find-btn">
 						{{mf 'find.search_go' 'Go!'}}
 					</button>
-				</span>
-				{{#unless isMobile}}
-					<span class="input-group-btn">
 						{{#if showingFilters}}
-							<button class="-showFilters remove-filter" type="button">
-								<span class="glyphicon glyphicon-filter"></span>
-								{{mf 'find.hideFilters' 'Remove filters'}}
+							<button type="button" class="btn btn-cancel js-toggle-filter">
+								{{#if isMobile}}
+									<span class="glyphicon glyphicon-filter" aria-hidden="true"></span>
+								{{else}}
+									<span class="fa fa-remove fa-fw" aria-hidden="true"></span>
+									{{mf 'find.hideFilters' 'Remove all filters'}}
+								{{/if}}
 							</button>
 						{{else}}
-							<button class="-showFilters" type="button">
-								<span class="glyphicon glyphicon-filter"></span>
+							<button type="button" class="btn btn-default js-toggle-filter">
+								<span class="glyphicon glyphicon-filter" aria-hidden="true"></span>
 								{{mf 'find.showFilters' 'Filter'}}
 							</button>
 						{{/if}}
-					</span>
-				{{/unless}}
+				</span>
 			</div>
 		</div>
-		{{#if isMobile}}
-			{{#if showingFilters}}
-				<button class="-showFilters remove-filter" type="button">
-					<span class="glyphicon glyphicon-filter"></span>
-					{{mf 'find.hideFilters' 'Remove filters'}}
-				</button>
+		{{#if showingFilters}}
+			{{> filter}}
+		{{/if}}
+	</div>
+	<div class="page-component">
+		{{#if hasResults}}
+			{{> courseList results}}
+
+			{{#unless ready}}
+				{{> loadingPage}}
+			{{/unless}}
+
+			{{#if hasMore}}
+				<div class="show-more-courses">
+					<button type="button" class="btn btn-success js-more-courses">
+						<span class="fa fa-plus fa-fw" aria-hidden="true"></span>
+						{{mf 'find.showMoreCourses' 'Show more courses'}}
+					</button>
+				</div>
+			{{/if}}
+		{{else}}
+			{{#if ready}}
+				<div class="no-results">
+					<div class="no-results-body">
+						<span class="fa fa-exclamation-circle fa-fw" aria-hidden="true"></span>
+						{{mf 'find.no-courses-found' 'No Courses found.'}}
+					</div>
+					{{#if searchIsLimited}}
+						<div class="btn-group">
+							{{#if filteredRegion}}
+								<button type="button" class="btn btn-default js-all-regions-btn">
+									<span class="fa fa-dot-circle-o fa-fw" aria-hidden="true"></span>
+									{{mf 'find.searchAllRegions' 'Search in all regions'}}
+								</button>
+							{{/if}}
+							{{#if activeFilters}}
+								<button type="button" class="btn btn-cancel js-toggle-filter">
+									<span class="fa fa-remove fa-fw" aria-hidden="true"></span>
+									{{mf 'find.hideFilters'}}
+								</button>
+							{{/if}}
+						</div>
+					{{/if}}
+				</div>
 			{{else}}
-				<button class="-showFilters" type="button">
-					<span class="glyphicon glyphicon-filter"></span>
-					{{mf 'find.showFilters' 'Filter'}}
-				</button>
+				{{> loadingPage}}
 			{{/if}}
 		{{/if}}
-		<div class="search_filter" style="{{#if showingFilters}}display:block;{{else}}display:none;{{/if}}">
-			<div class="search_filter_header">
-				<h4>
-					<span class="glyphicon glyphicon-filter"></span>
-					{{mf 'find.search_filter.title' 'Filter search'}}
-				</h4>
-			</div>
-			<div class="search_events">
-				<div class="checkbox -filterToggle -upcomingEventsFilter">
-					<label>
-						<input
-							type="checkbox"
-							id="hasUpcomingEvent"
-							name="hasUpcomingEvent"
-							{{toggleChecked 'upcomingEvent'}}
-						/>
-						{{#if toggleChecked 'upcomingEvent'}}
-							<div class="eventcaption_upcoming">
-								<div class="eventcaption_upcoming_box">
-									<div class="eventcaption_upcoming_text first-line"></div>
-									<div class="eventcaption_upcoming_text second-line"></div>
-									<div class="eventcaption_upcoming_text third-line"></div>
-								</div>
-							</div>
-						{{/if}}
-						{{#unless toggleChecked 'upcomingEvent'}}
-							<span class="glyphicon glyphicon-calendar"></span>
-						{{/unless}}
-						&nbsp;
-						{{mf 'find.with_upcoming_events' 'With upcoming events'}}
-						&nbsp;
-						{{#if toggleChecked 'upcomingEvent'}}
-							<span class="glyphicon glyphicon-ok"></span>
-						{{/if}}
-					</label>
-				</div>
-				<div class="checkbox -filterToggle -needsHostFilter">
-					<label>
-						<input
-							type="checkbox"
-							id="needsHost"
-							name="needsHost"
-							style="display: none"
-							{{toggleChecked 'needsHost'}}
-						/>
-						<span class="glyphicon glyphicon-home {{#if toggleChecked 'needsHost'}} checked{{/if}}"></span>
-						&nbsp;
-						{{mf 'find.needsHost' 'Looking for a host'}}
-						&nbsp;
-						{{#if toggleChecked 'needsHost'}}
-							<span class="glyphicon glyphicon-ok"></span>
-						{{/if}}
-					</label>
-				</div>
-				<div class="checkbox -filterToggle -needsMentorFilter">
-					<label>
-						<input
-							type="checkbox"
-							id="needsMentor"
-							name="needsMentor"
-							style="display: none"
-							{{toggleChecked 'needsMentor'}}
-						/>
-						<span class="fa fa-graduation-cap{{#if toggleChecked 'needsMentor'}} checked{{/if}}"></span>
-						&nbsp;
-						{{mf 'find.needsMentor' 'Looking for a mentor'}}
-						&nbsp;
-						{{#if toggleChecked 'needsMentor'}}
-							<span class="glyphicon glyphicon-ok"></span>
-						{{/if}}
-					</label>
-				</div>
-			</div>
-			<div class="filter_categories">
-				<h4>{{mf 'find.filter.categories' 'Categories'}}</h4>
-				{{#if categories}}
-					<ul class="selected_categories">
-					{{#each categories}}
-						<li>
-							<span class="category">{{categoryName}}</span>
-							<span
-								class="glyphicon glyphicon-remove -removeCategoryFilter"
-								title="{{mf 'find.filter.removeCategory' 'Remove category {CATEGORYNAME} from filter' CATEGORYNAME=categoryName}}">
-							</span>
-						</li>
-					{{/each}}
-					</ul>
-				{{/if}}
-				<div class="dropdown categorySelect">
-					<input
-						class="-searchCategories"
-						placeholder="{{mf 'find.searchCategories.placeholder' 'Add category'}}"
-					/>
-					<span
-						class="dropdown-toggle"
-						data-toggle="dropdown"
-						role="button"
-						aria-expanded="false">
-					</span>
-					<ul class="dropdown-menu" role="menu">
-						{{#if availableCategories}}
-							{{#each availableCategories}}
-								<li class="{{this}}">
-									<a class="category {{#if availableSubcategories this}}parent{{/if}}">
-										{{categoryName}}
-									</a>
-									{{#if availableSubcategories this}}
-										<small
-											class="-showSubcategories show-subcategories {{this}}"
-											title="{{mf 'find.showSubcategories.title' 'Show/Hide subcategories'}}">
-											<span class="fa fa-angle-down"></span>
-										</small>
-									{{/if}}
-								</li>
-								{{#each availableSubcategories this}}
-									<li class="-subcategory {{..}}">
-										<a class="category">{{categoryName}}</a>
-									</li>
-								{{/each}}
-							{{/each}}
-						{{else}}
-							<li class="no_categories">
-								{{mf 'find.no_categories' 'No categories found.'}}
-							</li>
-						{{/if}}
-					</ul>
-				</div>
-			</div>
-		</div>
-	</div>
-	<div class="courselist_results">
-		{{#unless ready}}
-			{{> loadingPage}}
-		{{else}}
-			{{#each results}}
-				{{> course}}
-			{{else}}
-				<div class="no_courses_found">
-				{{mf 'find.no_courses_found' 'No Courses found.'}}
-				{{#unless allRegions}}
-					<br>
-					<button class="-searchAllRegions">
-						<span class="fa fa-dot-circle-o"></span>
-						{{mf 'find.searchAllRegions' 'Search in all regions'}}
-					</button>
-					<br>
-				{{/unless}}
-				{{#if proposeNewBlurb}}
-					{{mf 'find.propose_new_course?' 'Why not propose a new one for "{TERM}"?' TERM=this.search}}
-					{{log this}}
-				{{/if}}
-				</div>
-			{{/each}}
-		{{/unless}}
 	</div>
 	{{#if eventResults.count}}
-		<div class="courselist_results">
-			<hr>
-			<h3>
-			{{#if results.count}}
-				{{#mf KEY='find.events.aditional_results' EVENTS=eventResults.count}}
-					{EVENTS, plural,
-						one {In addition, we found this event}
-						other {In addition, we found these # events}
-					}
-				{{/mf}}
-			{{else}}
-				{{#mf KEY='find.events.results_if_no_courses' EVENTS=eventResults.count}}
-					{EVENTS, plural,
-						one {All we found is this one event}
-						other {Yet # Events have been found}
-					}
-				{{/mf}}
-			{{/if}}
-			</h3><br />
-			{{#each eventResults}}
-				<!-- <div class="event_results"> -->
-					{{> small_event_withDate}}
-				<!-- </div> -->
-			{{/each}}
+		<div class="page-component">
+			<div class="course-list">
+				<hr>
+				<h3>
+				{{#if results.count}}
+					{{#mf KEY='find.events.aditional_results' EVENTS=eventResults.count}}
+						{EVENTS, plural,
+							one {In addition, we found this event}
+							other {In addition, we found these # events}
+						}
+					{{/mf}}
+				{{else}}
+					{{#mf KEY='find.events.results_if_no_courses' EVENTS=eventResults.count}}
+						{EVENTS, plural,
+							one {All we found is this one event}
+							other {Yet # Events have been found}
+						}
+					{{/mf}}
+				{{/if}}
+				</h3><br />
+				{{> eventList dataEvents=eventResults withDate=true}}
+			</div>
 		</div>
 	{{/if}}
-	{{> course_edit newCourse}}
+	<div class="page-component">
+		<div class="container-sm">
+			{{> courseEdit newCourse}}
+		</div>
+	</div>
 </template>

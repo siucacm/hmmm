@@ -2,17 +2,29 @@
 
 ////////////// db-subscriptions:
 
-Meteor.subscribe('roles');
 Meteor.subscribe('currentUser');
-Meteor.subscribe('files');
 Meteor.subscribe('version');
+
+// Always load english translation
+// For dynamically constructed translation strings there is no default
+// translation and meteor would show the translation key if there is no
+// translation in the current locale
+mfPkg.loadLangs('en');
 
 
 // close any verification dialogs still open
 Router.onBeforeAction(function() {
+	Tooltips.hide();
+
 	Session.set('verify', false);
 
 	this.next();
+});
+
+// Store routeName to be able to refer to previous route
+Router.onStop(function() {
+	var route = Router.current().route;
+	if (route) Session.set('previousRouteName', route.getName());
 });
 
 // Subscribe to list of regions and configure the regions
@@ -39,24 +51,26 @@ Meteor.subscribe('regions', function() {
 		return false;
 	};
 
+	// The region m,ight have been chosen already because the user is logged-in.
+	// See Accounts.onLogin().
+	if (useRegion(Session.get('region'))) return;
+
 	// Region parameter in URL or in storage?
 	if (useRegion(UrlTools.queryParam('region'))) return;
 	if (useRegion(localStorage.getItem("region"))) return;
 
-	// Ask server to place us
+	// Give up and ask the server to place us
+	useRegion('all');
 	Meteor.call('autoSelectRegion', function(error, regionId) {
-		if (useRegion(regionId)) return;
-
-		// Give up
-		useRegion('all');
+		useRegion(regionId);
 	});
 });
 
 
-// We keep two subscription manager around. One is for the regular subscriptions like list of courses,
+// We keep two subscription caches around. One is for the regular subscriptions like list of courses,
 // the other (miniSubs) is for the name lookups we do all over the place.
-subs = new SubsManager({ cacheLimit: 5, expireIn: 1 });
-miniSubs = new SubsManager({ cacheLimit: 150, expireIn: 1 });
+subs = new SubsCache({ cacheLimit: 5, expireAfter: 1 });
+miniSubs = new SubsCache({ cacheLimit: 50, expireAfter: 1 });
 
 
 // Try to guess a sensible language
@@ -65,12 +79,12 @@ Meteor.startup(function() {
 		if (!lang) return false;
 
 		var locale = false;
-		if (lgs[lang]) {
+		if (Languages[lang]) {
 			locale = lang;
 		}
 		if (!locale && lang.length > 2) {
 			var short = lang.substring(0, 2);
-			if (lgs[short]) {
+			if (Languages[short]) {
 				locale = short;
 			}
 		}
@@ -88,7 +102,6 @@ Meteor.startup(function() {
 	// Try to access the preferred languages. For the legacy browsers that don't
 	// expose it we could ask the server for the Accept-Language headers but I'm
 	// too lazy to implement this. It would become obsolete anyway.
-	var acceptLangs = Array.prototype.slice.call(navigator.languages);
 	for (var i in navigator.languages || []) {
 		if (useLocale(navigator.languages[i])) return;
 	}
@@ -102,32 +115,69 @@ Meteor.startup(function() {
 });
 
 Meteor.startup(function() {
-	Deps.autorun(function() {
+	Tracker.autorun(function() {
 		var desiredLocale = Session.get('locale');
 
 		mfPkg.setLocale(desiredLocale);
+
+		// Logic taken from mfpkg:core to get text directionality
+		var lang = desiredLocale.substr(0, 2);
+		var textDirectionality = msgfmt.dirFromLang(lang);
+		Session.set('textDirectionality', textDirectionality);
+
+		// Msgfmt already sets the dir attribute, but we want a class too.
+		var isRTL = textDirectionality == 'rtl';
+		$('body').toggleClass('rtl', isRTL);
 
 		// Tell moment to switch the locale
 		// Also change timeLocale which will invalidate the parts that depend on it
 		var setLocale = moment.locale(desiredLocale);
 		Session.set('timeLocale', setLocale);
 		if (desiredLocale !== setLocale) console.log("Date formatting set to "+setLocale+" because "+desiredLocale+" not available");
+
+		// HACK replace the datepicker locale settings
+		// I do not understand why setting language: moment.locale() does not
+		// work for the datepicker. But we want to use the momentjs settings
+		// anyway, so we might as well clobber the 'en' locale.
+		var mf = moment().localeData();
+
+		var monthsShort = function() {
+			if (typeof mf.monthsShort === 'function') {
+				return _.map(_.range(12), function(month) { return mf.monthsShort(moment().month(month), ''); });
+			}
+			return mf._monthsShort;
+		};
+
+		$.fn.datepicker.dates.en = _.extend({}, $.fn.datepicker.dates.en, {
+			days: mf._weekdays,
+			daysShort: mf._weekdaysShort,
+			daysMin: mf._weekdaysMin,
+			months: mf._months || mf._monthsNominativeEl,
+			monthsShort: monthsShort(),
+			weekStart: mf._week.dow
+		});
 	});
 });
 
 Meteor.startup(Assistant.init);
 
-Meteor.startup(getWindowSize);
+Meteor.startup(getViewportWidth);
 
 Accounts.onLogin(function() {
-	var locale = Meteor.user().profile.locale;
+	var user = Meteor.user();
+
+	var locale = user.profile.locale;
 	if (locale) Session.set('locale', locale);
+
+	var regionId = user.profile.regionId;
+	if (regionId) Session.set('region', regionId);
 });
 
 Accounts.onEmailVerificationLink(function(token, done) {
+	Router.go('profile');
 	Accounts.verifyEmail(token, function(error) {
 		if (error) {
-			addMessage(mf("email.verificationFailed", "Address could not be verified"), 'danger');
+			showServerError('Address could not be verified', error);
 		} else {
 			addMessage(mf("email.verified", "Email verified."), 'success');
 		}

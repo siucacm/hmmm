@@ -1,0 +1,40 @@
+.group-members {
+	@include list-unstyled;
+}
+
+$group-member-bg: rgba($gray-light, .15);
+
+.group-member {
+	background-color: $group-member-bg;
+	display: inline-block;
+	margin-bottom: 5px;
+	@include td-margin(right, 5px);
+	@include td-padding(left, 8px);
+	@include td-padding(right, 0);
+}
+
+.js-member-remove-btn,
+.js-member-add-btn {
+	background-color: rgba($group-member-bg, .3);
+	padding: 2px 6px;
+}
+
+.js-member-remove-btn:hover {
+	background-color: $red;
+}
+
+.js-member-remove-btn .fa {
+	color: $red-darker;
+}
+
+.js-member-add-btn:hover {
+	background-color: $green;
+}
+
+.js-member-add-btn .fa {
+	color: $green-darker;
+}
+
+.group-links {
+	@include list-unstyled;
+}

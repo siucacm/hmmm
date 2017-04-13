@@ -1,0 +1,57 @@
+.course-events {
+	height: 400px;
+	overflow-x: hidden;
+	overflow-y: auto;
+	padding: 0;
+	position: relative;
+}
+
+.container .course-event-list .event-compact-wrap {
+	@media (min-width: $screen-xs) {
+		@include td-make-xs-column(6);
+		padding: ($grid-gutter-width / 4) ($grid-gutter-width / 8);
+	}
+}
+
+.course-event-list {
+	@include clearfix;
+	margin: (($grid-gutter-width / 4) * -1) (($grid-gutter-width / 2) * -1);
+	width: auto;
+
+	@media (min-width: $screen-xs) {
+		margin: (($grid-gutter-width / 4) * -1) (($grid-gutter-width / 8) * -1);
+	}
+}
+
+.course-page-component-header + .course-event-list {
+	padding-top: 10px;
+}
+
+.course-event-list + .course-page-component-header {
+	margin-top: 10px;
+}
+
+.fade-wrap {
+	position: relative;
+}
+
+.fade-top,
+.fade-bottom {
+	background: none;
+	@include td-pos(left, 0);
+	position: absolute;
+	width: 100%;
+}
+
+.fade-top {
+	@include gradient-vertical($body-bg, transparent);
+	display: none;
+	height: 40px;
+	top: 0;
+}
+
+.fade-bottom {
+	@include gradient-vertical(transparent, $body-bg);
+	bottom: 0;
+	height: 40px;
+}
